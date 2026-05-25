@@ -13,7 +13,7 @@ import {
 	requestImageUploadCancelDialog,
 } from '@wordpress/react-native-bridge';
 import {
-	Icon,
+	Icon as WCIcon,
 	ToolbarButton,
 	ToolbarGroup,
 	PanelBody,
@@ -72,7 +72,7 @@ class VideoEdit extends Component {
 			this.finishMediaUploadWithFailure.bind( this );
 		this.updateMediaProgress = this.updateMediaProgress.bind( this );
 		this.onVideoPressed = this.onVideoPressed.bind( this );
-		this.onVideoContanerLayout = this.onVideoContanerLayout.bind( this );
+		this.onVideoContainerLayout = this.onVideoContainerLayout.bind( this );
 		this.onFocusCaption = this.onFocusCaption.bind( this );
 	}
 
@@ -179,7 +179,7 @@ class VideoEdit extends Component {
 		}
 	}
 
-	onVideoContanerLayout( event ) {
+	onVideoContainerLayout( event ) {
 		const { width } = event.nativeEvent.layout;
 		const height = width / VIDEO_ASPECT_RATIO;
 		if ( height !== this.state.videoContainerHeight ) {
@@ -191,7 +191,7 @@ class VideoEdit extends Component {
 		let iconStyle;
 		switch ( iconType ) {
 			case ICON_TYPE.RETRY:
-				return <Icon icon={ SvgIconRetry } { ...style.icon } />;
+				return <WCIcon icon={ SvgIconRetry } { ...style.icon } />;
 			case ICON_TYPE.PLACEHOLDER:
 				iconStyle = this.props.getStylesFromColorScheme(
 					style.icon,
@@ -206,7 +206,7 @@ class VideoEdit extends Component {
 				break;
 		}
 
-		return <Icon icon={ SvgIcon } { ...iconStyle } />;
+		return <WCIcon icon={ SvgIcon } { ...iconStyle } />;
 	}
 
 	render() {
@@ -321,7 +321,7 @@ class VideoEdit extends Component {
 
 							return (
 								<View
-									onLayout={ this.onVideoContanerLayout }
+									onLayout={ this.onVideoContainerLayout }
 									style={ containerStyle }
 								>
 									{ showVideo && (

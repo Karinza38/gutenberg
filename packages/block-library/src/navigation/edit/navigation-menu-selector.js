@@ -11,13 +11,12 @@ import { moreVertical } from '@wordpress/icons';
 import { __, sprintf } from '@wordpress/i18n';
 import { decodeEntities } from '@wordpress/html-entities';
 import { useEffect, useMemo, useState } from '@wordpress/element';
-import { useEntityProp } from '@wordpress/core-data';
+import { useEntityRecords, useEntityProp } from '@wordpress/core-data';
 
 /**
  * Internal dependencies
  */
 import useNavigationMenu from '../use-navigation-menu';
-import useNavigationEntities from '../use-navigation-entities';
 
 function buildMenuLabel( title, id, status ) {
 	if ( ! title ) {
@@ -53,7 +52,10 @@ function NavigationMenuSelector( {
 
 	actionLabel = actionLabel || createActionLabel;
 
-	const { menus: classicMenus } = useNavigationEntities();
+	const { records: classicMenus } = useEntityRecords( 'root', 'menu', {
+		per_page: -1,
+		context: 'view',
+	} );
 
 	const {
 		navigationMenus,
@@ -61,12 +63,14 @@ function NavigationMenuSelector( {
 		hasResolvedNavigationMenus,
 		canUserCreateNavigationMenus,
 		canSwitchNavigationMenu,
-	} = useNavigationMenu();
+		isNavigationMenuMissing,
+	} = useNavigationMenu( currentMenuId );
 
 	const [ currentTitle ] = useEntityProp(
 		'postType',
 		'wp_navigation',
-		'title'
+		'title',
+		currentMenuId
 	);
 
 	const menuChoices = useMemo( () => {
@@ -106,12 +110,18 @@ function NavigationMenuSelector( {
 	const noBlockMenus = ! hasNavigationMenus && hasResolvedNavigationMenus;
 	const menuUnavailable =
 		hasResolvedNavigationMenus && currentMenuId === null;
+	const navMenuHasBeenDeleted = currentMenuId && isNavigationMenuMissing;
 
 	let selectorLabel = '';
 
 	if ( isResolvingNavigationMenus ) {
 		selectorLabel = __( 'Loading…' );
-	} else if ( noMenuSelected || noBlockMenus || menuUnavailable ) {
+	} else if (
+		noMenuSelected ||
+		noBlockMenus ||
+		menuUnavailable ||
+		navMenuHasBeenDeleted
+	) {
 		// Note: classic Menus may be available.
 		selectorLabel = __( 'Choose or create a Navigation Menu' );
 	} else {

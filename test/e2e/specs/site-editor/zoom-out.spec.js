@@ -81,18 +81,18 @@ test.describe( 'Zoom Out', () => {
 		await requestUtils.activateTheme( 'twentytwentyfour' );
 	} );
 
-	test.afterAll( async ( { requestUtils } ) => {
-		await requestUtils.activateTheme( 'twentytwentyone' );
-		await requestUtils.deleteAllTemplates( 'wp_template' );
-		await requestUtils.deleteAllTemplates( 'wp_template_part' );
-	} );
-
 	test.beforeEach( async ( { admin } ) => {
 		await admin.visitSiteEditor( {
 			postId: 'twentytwentyfour//index',
 			postType: 'wp_template',
 			canvas: 'edit',
 		} );
+	} );
+
+	test.afterAll( async ( { requestUtils } ) => {
+		await requestUtils.activateTheme( 'twentytwentyone' );
+		await requestUtils.deleteAllTemplates( 'wp_template' );
+		await requestUtils.deleteAllTemplates( 'wp_template_part' );
 	} );
 
 	test( 'Entering zoomed out mode zooms the canvas', async ( {
@@ -232,6 +232,39 @@ test.describe( 'Zoom Out', () => {
 		await expect( thirdSectionStart ).toBeInViewport();
 		await expect( thirdSectionEnd ).toBeInViewport();
 		await expect( fourthSectionStart ).not.toBeInViewport();
+	} );
+
+	test( 'Zoom out selected section has four items in options menu', async ( {
+		page,
+	} ) => {
+		// open the inserter
+		await page
+			.getByRole( 'button', {
+				name: 'Block Inserter',
+				exact: true,
+			} )
+			.click();
+		// switch to patterns tab
+		await page.getByRole( 'tab', { name: 'Patterns' } ).click();
+		// search for a pattern
+		await page
+			.getByRole( 'searchbox', { name: 'Search' } )
+			.fill( 'Footer' );
+		// click on Footer with colophon, 3 columns
+		await page
+			.getByRole( 'option', { name: 'Footer with colophon, 3 columns' } )
+			.click();
+
+		// open the block toolbar more settings menu
+		await page.getByLabel( 'Block tools' ).getByLabel( 'Options' ).click();
+
+		// get the length of the options menu
+		const optionsMenu = page
+			.getByRole( 'menu', { name: 'Options' } )
+			.getByRole( 'menuitem' );
+
+		// we expect 2 items in the options menu: Duplicate and Delete.
+		await expect( optionsMenu ).toHaveCount( 2 );
 	} );
 
 	test( 'Zoom Out cannot be activated when the section root is missing', async ( {

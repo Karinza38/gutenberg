@@ -50,16 +50,9 @@ export const Root = styled.div< RootProps >`
 const wrapperColor = ( { color = COLORS.ui.borderFocus }: WrapperProps ) =>
 	css( { color } );
 
-const wrapperMargin = ( { marks, __nextHasNoMarginBottom }: WrapperProps ) => {
-	if ( ! __nextHasNoMarginBottom ) {
-		return css( { marginBottom: marks ? 16 : undefined } );
-	}
-	return '';
-};
-
 export const Wrapper = styled( 'div', {
 	shouldForwardProp: ( prop: string ) =>
-		! [ 'color', '__nextHasNoMarginBottom', 'marks' ].includes( prop ),
+		! [ 'color', 'marks' ].includes( prop ),
 } )< WrapperProps >`
 	display: block;
 	flex: 1;
@@ -68,7 +61,6 @@ export const Wrapper = styled( 'div', {
 
 	${ wrapperColor };
 	${ rangeHeight };
-	${ wrapperMargin };
 `;
 
 export const BeforeIconWrapper = styled.span`
@@ -86,17 +78,18 @@ export const AfterIconWrapper = styled.span`
 `;
 
 const railBackgroundColor = ( { disabled, railColor }: RailProps ) => {
-	let background = railColor || '';
+	return css`
+		background: ${ disabled
+			? COLORS.ui.backgroundDisabled
+			: railColor || COLORS.theme.gray[ 300 ] };
 
-	if ( disabled ) {
-		background = COLORS.ui.backgroundDisabled;
-	}
-
-	return css( { background } );
+		@media ( forced-colors: active ) {
+			background: GrayText;
+		}
+	`;
 };
 
 export const Rail = styled.span`
-	background-color: ${ COLORS.gray[ 300 ] };
 	left: 0;
 	pointer-events: none;
 	right: 0;
@@ -111,17 +104,18 @@ export const Rail = styled.span`
 `;
 
 const trackBackgroundColor = ( { disabled, trackColor }: TrackProps ) => {
-	let background = trackColor || 'currentColor';
+	return css`
+		background: ${ disabled
+			? COLORS.theme.gray[ 400 ]
+			: trackColor || 'currentColor' };
 
-	if ( disabled ) {
-		background = COLORS.gray[ 400 ];
-	}
-
-	return css( { background } );
+		@media ( forced-colors: active ) {
+			background: ${ disabled ? 'GrayText' : 'CanvasText' };
+		}
+	`;
 };
 
 export const Track = styled.span`
-	background-color: currentColor;
 	border-radius: ${ CONFIG.radiusFull };
 	height: ${ railHeight }px;
 	pointer-events: none;
@@ -129,6 +123,12 @@ export const Track = styled.span`
 	position: absolute;
 	margin-top: ${ ( rangeHeightValue - railHeight ) / 2 }px;
 	top: 0;
+
+	.is-marked & {
+		@media not ( prefers-reduced-motion ) {
+			transition: width ease 0.1s;
+		}
+	}
 
 	${ trackBackgroundColor };
 `;
@@ -139,41 +139,31 @@ export const MarksWrapper = styled.span`
 	position: relative;
 	width: 100%;
 	user-select: none;
+	margin-top: 17px;
 `;
 
-const markFill = ( { disabled, isFilled }: RangeMarkProps ) => {
-	let backgroundColor = isFilled ? 'currentColor' : COLORS.gray[ 300 ];
-
-	if ( disabled ) {
-		backgroundColor = COLORS.gray[ 400 ];
-	}
-
-	return css( {
-		backgroundColor,
-	} );
-};
-
 export const Mark = styled.span`
-	height: ${ thumbSize }px;
-	left: 0;
 	position: absolute;
-	top: 9px;
-	width: 1px;
-
-	${ markFill };
+	left: 0;
+	top: -4px;
+	height: 4px;
+	width: 2px;
+	transform: translateX( -50% );
+	background-color: ${ COLORS.ui.background };
+	z-index: 1;
 `;
 
 const markLabelFill = ( { isFilled }: RangeMarkProps ) => {
 	return css( {
-		color: isFilled ? COLORS.gray[ 700 ] : COLORS.gray[ 300 ],
+		color: isFilled ? COLORS.theme.gray[ 700 ] : COLORS.theme.gray[ 300 ],
 	} );
 };
 
 export const MarkLabel = styled.span`
-	color: ${ COLORS.gray[ 300 ] };
+	color: ${ COLORS.theme.gray[ 300 ] };
 	font-size: 11px;
 	position: absolute;
-	top: 22px;
+	top: 8px;
 	white-space: nowrap;
 
 	${ rtl( { left: 0 } ) };
@@ -185,14 +175,17 @@ export const MarkLabel = styled.span`
 	${ markLabelFill };
 `;
 
-const thumbColor = ( { disabled }: ThumbProps ) =>
-	disabled
-		? css`
-				background-color: ${ COLORS.gray[ 400 ] };
-		  `
-		: css`
-				background-color: ${ COLORS.theme.accent };
-		  `;
+const thumbColor = ( { disabled }: ThumbProps ) => {
+	return css`
+		background: ${ disabled
+			? COLORS.theme.gray[ 400 ]
+			: COLORS.theme.accent };
+
+		@media ( forced-colors: active ) {
+			background: ${ disabled ? 'GrayText' : 'CanvasText' };
+		}
+	`;
+};
 
 export const ThumbWrapper = styled.span`
 	align-items: center;
@@ -207,6 +200,13 @@ export const ThumbWrapper = styled.span`
 	user-select: none;
 	width: ${ thumbSize }px;
 	border-radius: ${ CONFIG.radiusRound };
+	z-index: 3;
+
+	.is-marked & {
+		@media not ( prefers-reduced-motion ) {
+			transition: left ease 0.1s;
+		}
+	}
 
 	${ thumbColor };
 	${ rtl( { marginLeft: -10 } ) };
@@ -229,6 +229,10 @@ const thumbFocus = ( { isFocused }: ThumbProps ) => {
 					width: ${ thumbSize + 8 }px;
 					top: -4px;
 					left: -4px;
+
+					@media ( forced-colors: active ) {
+						background: GrayText;
+					}
 				}
 		  `
 		: '';
@@ -280,8 +284,8 @@ const tooltipShow = ( { show }: TooltipProps ) => {
 	`;
 };
 
-const tooltipPosition = ( { position }: TooltipProps ) => {
-	const isBottom = position === 'bottom';
+const tooltipPlacement = ( { placement }: TooltipProps ) => {
+	const isBottom = placement === 'bottom';
 
 	if ( isBottom ) {
 		return css`
@@ -309,7 +313,7 @@ export const Tooltip = styled.span< TooltipProps >`
 
 	${ tooltipShow };
 
-	${ tooltipPosition };
+	${ tooltipPlacement };
 	${ rtl(
 		{ transform: 'translateX(-50%)' },
 		{ transform: 'translateX(50%)' }

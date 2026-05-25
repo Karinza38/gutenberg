@@ -84,6 +84,10 @@ export type SlotComponentProps =
 			style?: never;
 	  } );
 
+export type FillChildren =
+	| ReactNode
+	| ( ( fillProps: FillProps ) => ReactNode );
+
 export type FillComponentProps = {
 	/**
 	 * The name of the slot to fill into.
@@ -93,7 +97,7 @@ export type FillComponentProps = {
 	/**
 	 * Children elements or render function.
 	 */
-	children?: ReactNode | ( ( fillProps: FillProps ) => ReactNode );
+	children?: FillChildren;
 };
 
 export type SlotFillProviderProps = {
@@ -108,34 +112,26 @@ export type SlotFillProviderProps = {
 	passthrough?: boolean;
 };
 
-export type SlotRef = RefObject< HTMLElement >;
-export type Rerenderable = { rerender: () => void };
-export type FillInstance = {};
+export type SlotFillInstance = {};
+export type SlotRef = RefObject< HTMLElement | null >;
+export type SlotRecord = { instance: SlotFillInstance } & (
+	| { type: 'children' }
+	| { type: 'portal'; ref: SlotRef; fillProps: FillProps }
+);
+export type FillRecord = { instance: SlotFillInstance; children: FillChildren };
 
-export type SlotFillBubblesVirtuallyContext = {
-	slots: ObservableMap< SlotKey, { ref: SlotRef; fillProps: FillProps } >;
-	fills: ObservableMap< SlotKey, FillInstance[] >;
-	registerSlot: ( name: SlotKey, ref: SlotRef, fillProps: FillProps ) => void;
-	unregisterSlot: ( name: SlotKey, ref: SlotRef ) => void;
-	updateSlot: ( name: SlotKey, ref: SlotRef, fillProps: FillProps ) => void;
-	registerFill: ( name: SlotKey, instance: FillInstance ) => void;
-	unregisterFill: ( name: SlotKey, instance: FillInstance ) => void;
+export type SlotFillRegistry = {
+	slots: ObservableMap< SlotKey, SlotRecord >;
+	fills: ObservableMap< SlotKey, FillRecord[] >;
+	registerSlot: ( name: SlotKey, slot: SlotRecord ) => void;
+	unregisterSlot: ( name: SlotKey, instance: SlotFillInstance ) => void;
+	updateSlot: ( name: SlotKey, slot: SlotRecord ) => void;
+	registerFill: ( name: SlotKey, fill: FillRecord ) => void;
+	unregisterFill: ( name: SlotKey, instance: SlotFillInstance ) => void;
+	updateFill: ( name: SlotKey, fill: FillRecord ) => void;
 
 	/**
 	 * This helps the provider know if it's using the default context value or not.
 	 */
 	isDefault?: boolean;
-};
-
-export type BaseSlotFillContext = {
-	registerSlot: ( name: SlotKey, slot: Rerenderable ) => void;
-	unregisterSlot: ( name: SlotKey, slot: Rerenderable ) => void;
-	registerFill: ( name: SlotKey, instance: FillComponentProps ) => void;
-	unregisterFill: ( name: SlotKey, instance: FillComponentProps ) => void;
-	getSlot: ( name: SlotKey ) => Rerenderable | undefined;
-	getFills: (
-		name: SlotKey,
-		slotInstance: Rerenderable
-	) => FillComponentProps[];
-	subscribe: ( listener: () => void ) => () => void;
 };

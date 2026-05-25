@@ -18,17 +18,36 @@ const delay = ( delayInMs: number ) => {
 	return new Promise( ( resolve ) => setTimeout( resolve, delayInMs ) );
 };
 
+const waitForFocusedMenu = () =>
+	waitFor( () => expect( screen.getByRole( 'menu' ) ).toHaveFocus() );
+
+const waitForFocusedMenuItem = ( name: string ) =>
+	waitFor( () =>
+		expect( screen.getByRole( 'menuitem', { name } ) ).toHaveFocus()
+	);
+
+// Open dropdown => open menu
+// Submenu trigger item => open submenu
+
 describe( 'Menu', () => {
 	// See https://www.w3.org/WAI/ARIA/apg/patterns/menu-button/
 	it( 'should follow the WAI-ARIA spec', async () => {
 		render(
-			<Menu trigger={ <button>Open dropdown</button> }>
-				<Menu.Item>Menu item</Menu.Item>
-				<Menu.Separator />
-				<Menu trigger={ <Menu.Item>Submenu trigger item</Menu.Item> }>
-					<Menu.Item>Submenu item 1</Menu.Item>
-					<Menu.Item>Submenu item 2</Menu.Item>
-				</Menu>
+			<Menu>
+				<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+				<Menu.Popover>
+					<Menu.Item>Menu item</Menu.Item>
+					<Menu.Separator />
+					<Menu>
+						<Menu.SubmenuTriggerItem>
+							Submenu trigger item
+						</Menu.SubmenuTriggerItem>
+						<Menu.Popover>
+							<Menu.Item>Submenu item 1</Menu.Item>
+							<Menu.Item>Submenu item 2</Menu.Item>
+						</Menu.Popover>
+					</Menu>
+				</Menu.Popover>
 			</Menu>
 		);
 
@@ -84,8 +103,11 @@ describe( 'Menu', () => {
 	describe( 'pointer and keyboard interactions', () => {
 		it( 'should open and focus the menu when clicking the trigger', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -100,15 +122,18 @@ describe( 'Menu', () => {
 			await click( toggleButton );
 
 			// Menu open, focus is on the menu wrapper
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 		} );
 
 		it( 'should open and focus the first item when pressing the arrow down key on the trigger', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item disabled>First item</Menu.Item>
-					<Menu.Item>Second item</Menu.Item>
-					<Menu.Item>Third item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item disabled>First item</Menu.Item>
+						<Menu.Item>Second item</Menu.Item>
+						<Menu.Item>Third item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -128,17 +153,18 @@ describe( 'Menu', () => {
 
 			// Menu open, focus is on the first focusable item
 			// (disabled items are still focusable and accessible)
-			expect(
-				screen.getByRole( 'menuitem', { name: 'First item' } )
-			).toHaveFocus();
+			await waitForFocusedMenuItem( 'First item' );
 		} );
 
-		it( 'should open and focus the first item when pressing the space key on the trigger', async () => {
+		it( 'should open when pressing the space key on the trigger', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item disabled>First item</Menu.Item>
-					<Menu.Item>Second item</Menu.Item>
-					<Menu.Item>Third item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>First item</Menu.Item>
+						<Menu.Item>Second item</Menu.Item>
+						<Menu.Item>Third item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -154,19 +180,26 @@ describe( 'Menu', () => {
 			// Menu closed
 			expect( screen.queryByRole( 'menuitem' ) ).not.toBeInTheDocument();
 
-			await press.Space();
+			// Keyboard-triggered clicks have `detail: 0`, which Ariakit uses to
+			// distinguish keyboard activation from pointer activation.
+			await press.Space( toggleButton, { detail: 0 } );
 
-			// Menu open, focus is on the first focusable item
-			// (disabled items are still focusable and accessible
-			expect(
-				screen.getByRole( 'menuitem', { name: 'First item' } )
-			).toHaveFocus();
+			await waitFor( () =>
+				expect( toggleButton ).toHaveAttribute(
+					'aria-expanded',
+					'true'
+				)
+			);
+			expect( screen.getByRole( 'menu' ) ).toBeVisible();
 		} );
 
 		it( 'should close when pressing the escape key', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -178,7 +211,7 @@ describe( 'Menu', () => {
 
 			// Focuses menu on mouse click, focuses first item on keyboard press
 			// Can be changed with a custom useEffect
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 
 			// Pressing esc will close the menu and move focus to the toggle
 			await press.Escape();
@@ -194,8 +227,11 @@ describe( 'Menu', () => {
 
 		it( 'should close when clicking outside of the content', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -209,8 +245,11 @@ describe( 'Menu', () => {
 
 		it( 'should close when clicking on a menu item', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -224,8 +263,11 @@ describe( 'Menu', () => {
 
 		it( 'should not close when clicking on a menu item when the `hideOnClick` prop is set to `false`', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item hideOnClick={ false }>Menu item</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item hideOnClick={ false }>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -239,8 +281,11 @@ describe( 'Menu', () => {
 
 		it( 'should not close when clicking on a disabled menu item', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item disabled>Menu item</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item disabled>Menu item</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -254,16 +299,22 @@ describe( 'Menu', () => {
 
 		it( 'should reveal submenu content when hovering over the submenu trigger', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item 1</Menu.Item>
-					<Menu.Item>Menu item 2</Menu.Item>
-					<Menu
-						trigger={ <Menu.Item>Submenu trigger item</Menu.Item> }
-					>
-						<Menu.Item>Submenu item 1</Menu.Item>
-						<Menu.Item>Submenu item 2</Menu.Item>
-					</Menu>
-					<Menu.Item>Menu item 3</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item 1</Menu.Item>
+						<Menu.Item>Menu item 2</Menu.Item>
+						<Menu>
+							<Menu.SubmenuTriggerItem>
+								Submenu trigger item
+							</Menu.SubmenuTriggerItem>
+							<Menu.Popover>
+								<Menu.Item>Submenu item 1</Menu.Item>
+								<Menu.Item>Submenu item 2</Menu.Item>
+							</Menu.Popover>
+						</Menu>
+						<Menu.Item>Menu item 3</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -288,23 +339,27 @@ describe( 'Menu', () => {
 
 		it( 'should navigate menu items and subitems using the arrow, spacebar and enter keys', async () => {
 			render(
-				<Menu defaultOpen trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>Menu item 1</Menu.Item>
-					<Menu.Item>Menu item 2</Menu.Item>
-					<Menu
-						trigger={ <Menu.Item>Submenu trigger item</Menu.Item> }
-					>
-						<Menu.Item>Submenu item 1</Menu.Item>
-						<Menu.Item>Submenu item 2</Menu.Item>
-					</Menu>
-					<Menu.Item>Menu item 3</Menu.Item>
+				<Menu defaultOpen>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>Menu item 1</Menu.Item>
+						<Menu.Item>Menu item 2</Menu.Item>
+						<Menu>
+							<Menu.SubmenuTriggerItem>
+								Submenu trigger item
+							</Menu.SubmenuTriggerItem>
+							<Menu.Popover>
+								<Menu.Item>Submenu item 1</Menu.Item>
+								<Menu.Item>Submenu item 2</Menu.Item>
+							</Menu.Popover>
+						</Menu>
+						<Menu.Item>Menu item 3</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
 			// The menu is focused automatically when `defaultOpen` is set.
-			await waitFor( () =>
-				expect( screen.getByRole( 'menu' ) ).toHaveFocus()
-			);
+			await waitForFocusedMenu();
 
 			// Arrow up/down selects menu items
 			// The selection wraps around from last to first and viceversa
@@ -344,18 +399,13 @@ describe( 'Menu', () => {
 			).toHaveFocus();
 
 			// Arrow right/left can be used to enter/leave submenus
+			// (focus crosses menu contexts, so wait for it to settle)
 			await press.ArrowRight();
-			expect(
-				screen.getByRole( 'menuitem', {
-					name: 'Submenu item 1',
-				} )
-			).toHaveFocus();
+			await waitForFocusedMenuItem( 'Submenu item 1' );
 
 			await press.ArrowDown();
 			expect(
-				screen.getByRole( 'menuitem', {
-					name: 'Submenu item 2',
-				} )
+				screen.getByRole( 'menuitem', { name: 'Submenu item 2' } )
 			).toHaveFocus();
 
 			await press.ArrowLeft();
@@ -367,11 +417,7 @@ describe( 'Menu', () => {
 
 			// Spacebar or enter key can also be used to enter a submenu
 			await press.Enter();
-			expect(
-				screen.getByRole( 'menuitem', {
-					name: 'Submenu item 1',
-				} )
-			).toHaveFocus();
+			await waitForFocusedMenuItem( 'Submenu item 1' );
 
 			await press.ArrowLeft();
 			expect(
@@ -381,11 +427,7 @@ describe( 'Menu', () => {
 			).toHaveFocus();
 
 			await press.Space();
-			expect(
-				screen.getByRole( 'menuitem', {
-					name: 'Submenu item 1',
-				} )
-			).toHaveFocus();
+			await waitForFocusedMenuItem( 'Submenu item 1' );
 
 			await press.ArrowLeft();
 			expect(
@@ -407,25 +449,28 @@ describe( 'Menu', () => {
 					setRadioValue( e.target.value );
 				};
 				return (
-					<Menu trigger={ <button>Open dropdown</button> }>
-						<Menu.Group>
-							<Menu.RadioItem
-								name="radio-test"
-								value="radio-one"
-								checked={ radioValue === 'radio-one' }
-								onChange={ onRadioChange }
-							>
-								Radio item one
-							</Menu.RadioItem>
-							<Menu.RadioItem
-								name="radio-test"
-								value="radio-two"
-								checked={ radioValue === 'radio-two' }
-								onChange={ onRadioChange }
-							>
-								Radio item two
-							</Menu.RadioItem>
-						</Menu.Group>
+					<Menu>
+						<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+						<Menu.Popover>
+							<Menu.Group>
+								<Menu.RadioItem
+									name="radio-test"
+									value="radio-one"
+									checked={ radioValue === 'radio-one' }
+									onChange={ onRadioChange }
+								>
+									Radio item one
+								</Menu.RadioItem>
+								<Menu.RadioItem
+									name="radio-test"
+									value="radio-two"
+									checked={ radioValue === 'radio-two' }
+									onChange={ onRadioChange }
+								>
+									Radio item two
+								</Menu.RadioItem>
+							</Menu.Group>
+						</Menu.Popover>
 					</Menu>
 				);
 			};
@@ -484,28 +529,31 @@ describe( 'Menu', () => {
 		it( 'should check radio items and keep the menu open when clicking (uncontrolled)', async () => {
 			const onRadioValueChangeSpy = jest.fn();
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Group>
-						<Menu.RadioItem
-							name="radio-test"
-							value="radio-one"
-							onChange={ ( e ) =>
-								onRadioValueChangeSpy( e.target.value )
-							}
-						>
-							Radio item one
-						</Menu.RadioItem>
-						<Menu.RadioItem
-							name="radio-test"
-							value="radio-two"
-							defaultChecked
-							onChange={ ( e ) =>
-								onRadioValueChangeSpy( e.target.value )
-							}
-						>
-							Radio item two
-						</Menu.RadioItem>
-					</Menu.Group>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Group>
+							<Menu.RadioItem
+								name="radio-test"
+								value="radio-one"
+								onChange={ ( e ) =>
+									onRadioValueChangeSpy( e.target.value )
+								}
+							>
+								Radio item one
+							</Menu.RadioItem>
+							<Menu.RadioItem
+								name="radio-test"
+								value="radio-two"
+								defaultChecked
+								onChange={ ( e ) =>
+									onRadioValueChangeSpy( e.target.value )
+								}
+							>
+								Radio item two
+							</Menu.RadioItem>
+						</Menu.Group>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -568,38 +616,41 @@ describe( 'Menu', () => {
 					useState< boolean >();
 
 				return (
-					<Menu trigger={ <button>Open dropdown</button> }>
-						<Menu.CheckboxItem
-							name="item-one"
-							value="item-one-value"
-							checked={ itemOneChecked }
-							onChange={ ( e ) => {
-								onCheckboxValueChangeSpy(
-									e.target.name,
-									e.target.value,
-									e.target.checked
-								);
-								setItemOneChecked( e.target.checked );
-							} }
-						>
-							Checkbox item one
-						</Menu.CheckboxItem>
+					<Menu>
+						<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+						<Menu.Popover>
+							<Menu.CheckboxItem
+								name="item-one"
+								value="item-one-value"
+								checked={ itemOneChecked }
+								onChange={ ( e ) => {
+									onCheckboxValueChangeSpy(
+										e.target.name,
+										e.target.value,
+										e.target.checked
+									);
+									setItemOneChecked( e.target.checked );
+								} }
+							>
+								Checkbox item one
+							</Menu.CheckboxItem>
 
-						<Menu.CheckboxItem
-							name="item-two"
-							value="item-two-value"
-							checked={ itemTwoChecked }
-							onChange={ ( e ) => {
-								onCheckboxValueChangeSpy(
-									e.target.name,
-									e.target.value,
-									e.target.checked
-								);
-								setItemTwoChecked( e.target.checked );
-							} }
-						>
-							Checkbox item two
-						</Menu.CheckboxItem>
+							<Menu.CheckboxItem
+								name="item-two"
+								value="item-two-value"
+								checked={ itemTwoChecked }
+								onChange={ ( e ) => {
+									onCheckboxValueChangeSpy(
+										e.target.name,
+										e.target.value,
+										e.target.checked
+									);
+									setItemTwoChecked( e.target.checked );
+								} }
+							>
+								Checkbox item two
+							</Menu.CheckboxItem>
+						</Menu.Popover>
 					</Menu>
 				);
 			};
@@ -691,35 +742,38 @@ describe( 'Menu', () => {
 			const onCheckboxValueChangeSpy = jest.fn();
 
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.CheckboxItem
-						name="item-one"
-						value="item-one-value"
-						onChange={ ( e ) => {
-							onCheckboxValueChangeSpy(
-								e.target.name,
-								e.target.value,
-								e.target.checked
-							);
-						} }
-					>
-						Checkbox item one
-					</Menu.CheckboxItem>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.CheckboxItem
+							name="item-one"
+							value="item-one-value"
+							onChange={ ( e ) => {
+								onCheckboxValueChangeSpy(
+									e.target.name,
+									e.target.value,
+									e.target.checked
+								);
+							} }
+						>
+							Checkbox item one
+						</Menu.CheckboxItem>
 
-					<Menu.CheckboxItem
-						name="item-two"
-						value="item-two-value"
-						defaultChecked
-						onChange={ ( e ) => {
-							onCheckboxValueChangeSpy(
-								e.target.name,
-								e.target.value,
-								e.target.checked
-							);
-						} }
-					>
-						Checkbox item two
-					</Menu.CheckboxItem>
+						<Menu.CheckboxItem
+							name="item-two"
+							value="item-two-value"
+							defaultChecked
+							onChange={ ( e ) => {
+								onCheckboxValueChangeSpy(
+									e.target.name,
+									e.target.value,
+									e.target.checked
+								);
+							} }
+						>
+							Checkbox item two
+						</Menu.CheckboxItem>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -809,8 +863,11 @@ describe( 'Menu', () => {
 		it( 'should be modal by default', async () => {
 			render(
 				<>
-					<Menu trigger={ <button>Open dropdown</button> }>
-						<Menu.Item>Menu item</Menu.Item>
+					<Menu>
+						<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+						<Menu.Popover>
+							<Menu.Item>Menu item</Menu.Item>
+						</Menu.Popover>
 					</Menu>
 					<button>Button outside of dropdown</button>
 				</>
@@ -824,7 +881,7 @@ describe( 'Menu', () => {
 			);
 
 			// Menu open, focus is on the menu wrapper
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 
 			expect(
 				screen.queryByRole( 'button', {
@@ -836,11 +893,11 @@ describe( 'Menu', () => {
 		it( 'should not be modal when the `modal` prop is set to `false`', async () => {
 			render(
 				<>
-					<Menu
-						trigger={ <button>Open dropdown</button> }
-						modal={ false }
-					>
-						<Menu.Item>Menu item</Menu.Item>
+					<Menu>
+						<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+						<Menu.Popover modal={ false }>
+							<Menu.Item>Menu item</Menu.Item>
+						</Menu.Popover>
 					</Menu>
 					<button>Button outside of dropdown</button>
 				</>
@@ -854,18 +911,19 @@ describe( 'Menu', () => {
 			);
 
 			// Menu open, focus is on the menu wrapper
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 
 			// Menu is not modal, therefore the outer button is part of the
 			// accessibility tree and can be found.
 			const outerButton = screen.getByRole( 'button', {
 				name: 'Button outside of dropdown',
 			} );
+			expect( outerButton ).toBeVisible();
 
 			// The outer button can be focused by pressing tab. Doing so will cause
 			// the Menu to close.
 			await press.Tab();
-			expect( outerButton ).toBeInTheDocument();
+			expect( outerButton ).toBeVisible();
 			expect( screen.queryByRole( 'menu' ) ).not.toBeInTheDocument();
 		} );
 	} );
@@ -873,8 +931,13 @@ describe( 'Menu', () => {
 	describe( 'items prefix and suffix', () => {
 		it( 'should display a prefix on regular items', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item prefix={ <>Item prefix</> }>Menu item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item prefix={ <>Item prefix</> }>
+							Menu item
+						</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -895,8 +958,13 @@ describe( 'Menu', () => {
 
 		it( 'should display a suffix on regular items', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item suffix={ <>Item suffix</> }>Menu item</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item suffix={ <>Item suffix</> }>
+							Menu item
+						</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -917,14 +985,17 @@ describe( 'Menu', () => {
 
 		it( 'should display a suffix on radio items', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.RadioItem
-						name="radio-test"
-						value="radio-one"
-						suffix="Radio suffix"
-					>
-						Radio item one
-					</Menu.RadioItem>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.RadioItem
+							name="radio-test"
+							value="radio-one"
+							suffix="Radio suffix"
+						>
+							Radio item one
+						</Menu.RadioItem>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -945,14 +1016,17 @@ describe( 'Menu', () => {
 
 		it( 'should display a suffix on checkbox items', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.CheckboxItem
-						name="checkbox-test"
-						value="checkbox-one"
-						suffix="Checkbox suffix"
-					>
-						Checkbox item one
-					</Menu.CheckboxItem>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.CheckboxItem
+							name="checkbox-test"
+							value="checkbox-one"
+							suffix="Checkbox suffix"
+						>
+							Checkbox item one
+						</Menu.CheckboxItem>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -975,9 +1049,12 @@ describe( 'Menu', () => {
 	describe( 'typeahead', () => {
 		it( 'should highlight matching item', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>One</Menu.Item>
-					<Menu.Item>Two</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>One</Menu.Item>
+						<Menu.Item>Two</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -987,7 +1064,7 @@ describe( 'Menu', () => {
 					name: 'Open dropdown',
 				} )
 			);
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 
 			// Type "tw", it should match and focus the item with content "Two"
 			await type( 'tw' );
@@ -1008,9 +1085,12 @@ describe( 'Menu', () => {
 
 		it( 'should keep previous focus when no matches are found', async () => {
 			render(
-				<Menu trigger={ <button>Open dropdown</button> }>
-					<Menu.Item>One</Menu.Item>
-					<Menu.Item>Two</Menu.Item>
+				<Menu>
+					<Menu.TriggerButton>Open dropdown</Menu.TriggerButton>
+					<Menu.Popover>
+						<Menu.Item>One</Menu.Item>
+						<Menu.Item>Two</Menu.Item>
+					</Menu.Popover>
 				</Menu>
 			);
 
@@ -1020,7 +1100,7 @@ describe( 'Menu', () => {
 					name: 'Open dropdown',
 				} )
 			);
-			expect( screen.getByRole( 'menu' ) ).toHaveFocus();
+			await waitForFocusedMenu();
 
 			// Type a string that doesn't match any items. Focus shouldn't move.
 			await type( 'abc' );

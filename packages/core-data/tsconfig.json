@@ -2,15 +2,15 @@
 	"$schema": "https://json.schemastore.org/tsconfig.json",
 	"extends": "../../tsconfig.base.json",
 	"compilerOptions": {
-		"rootDir": "src",
-		"declarationDir": "build-types",
 		"checkJs": false,
-		"noImplicitAny": false
+		"noImplicitAny": false,
+		"types": [ "jest", "node" ]
 	},
 	"references": [
 		{ "path": "../api-fetch" },
-		{ "path": "../compose" },
 		{ "path": "../block-editor" },
+		{ "path": "../blocks" },
+		{ "path": "../compose" },
 		{ "path": "../data" },
 		{ "path": "../deprecated" },
 		{ "path": "../element" },
@@ -24,5 +24,11 @@
 		{ "path": "../url" },
 		{ "path": "../warning" }
 	],
-	"include": [ "src/**/*" ]
+	"exclude": [
+		"src/**/*.android.js",
+		"src/**/*.ios.js",
+		"src/**/*.native.js",
+		"src/**/react-native-*",
+		"src/**/test/**/*.js" // only exclude js files, ts files should be checked
+	]
 }

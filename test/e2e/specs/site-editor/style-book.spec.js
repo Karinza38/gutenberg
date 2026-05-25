@@ -14,14 +14,7 @@ test.describe( 'Style Book', () => {
 		await requestUtils.activateTheme( 'emptytheme' );
 	} );
 
-	test.afterAll( async ( { requestUtils } ) => {
-		await requestUtils.activateTheme( 'twentytwentyone' );
-	} );
-
 	test.beforeEach( async ( { admin, editor, styleBook, page } ) => {
-		await page.addInitScript( () => {
-			window.__experimentalEditorWriteMode = true;
-		} );
 		await admin.visitSiteEditor();
 		await editor.canvas.locator( 'body' ).click();
 		await styleBook.open();
@@ -30,12 +23,13 @@ test.describe( 'Style Book', () => {
 		).toBeVisible();
 	} );
 
+	test.afterAll( async ( { requestUtils } ) => {
+		await requestUtils.activateTheme( 'twentytwentyone' );
+	} );
+
 	test( 'should disable toolbar buttons when open', async ( { page } ) => {
 		await expect(
 			page.locator( 'role=button[name="Block Inserter"i]' )
-		).toBeDisabled();
-		await expect(
-			page.locator( 'role=button[name="Tools"i]' )
 		).toBeDisabled();
 		await expect(
 			page.locator( 'role=button[name="Document Overview"i]' )
@@ -186,6 +180,30 @@ test.describe( 'Style Book', () => {
 		await expect(
 			page.getByLabel( 'Search commands and settings' )
 		).toBeVisible();
+	} );
+} );
+
+test.describe( 'Style Book for classic themes', () => {
+	test( 'Should show Style Book for a theme that supports it', async ( {
+		page,
+		admin,
+		requestUtils,
+	} ) => {
+		// Make sure a classic theme is active.
+		await requestUtils.activateTheme( 'twentytwentyone' );
+		// Go to site editor.
+		await admin.visitAdminPage( 'site-editor.php' );
+
+		// Open the Style Book.
+		await page.getByRole( 'button', { name: 'Styles' } ).click();
+
+		// Block examples should be visible.
+		const blockExamples = page
+			.frameLocator( '[name="style-book-canvas"]' )
+			.getByRole( 'grid', {
+				name: 'Examples of blocks',
+			} );
+		await expect( blockExamples ).toBeVisible();
 	} );
 } );
 

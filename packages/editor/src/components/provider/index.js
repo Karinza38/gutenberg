@@ -1,8 +1,13 @@
 /**
  * WordPress dependencies
  */
-import { useEffect, useLayoutEffect, useMemo } from '@wordpress/element';
-import { useDispatch, useSelect } from '@wordpress/data';
+import {
+	useCallback,
+	useEffect,
+	useLayoutEffect,
+	useMemo,
+} from '@wordpress/element';
+import { useDispatch, useSelect, useRegistry } from '@wordpress/data';
 import { __ } from '@wordpress/i18n';
 import {
 	EntityProvider,
@@ -13,7 +18,6 @@ import {
 	BlockEditorProvider,
 	BlockContextProvider,
 	privateApis as blockEditorPrivateApis,
-	store as blockEditorStore,
 } from '@wordpress/block-editor';
 import { store as noticesStore } from '@wordpress/notices';
 import { privateApis as editPatternsPrivateApis } from '@wordpress/patterns';
@@ -29,16 +33,18 @@ import { unlock } from '../../lock-unlock';
 import DisableNonPageContentBlocks from './disable-non-page-content-blocks';
 import NavigationBlockEditingMode from './navigation-block-editing-mode';
 import { useHideBlocksFromInserter } from './use-hide-blocks-from-inserter';
+import { useRevisionBlocks } from './use-revision-blocks';
 import useCommands from '../commands';
+import useUploadSaveLock from './use-upload-save-lock';
 import BlockRemovalWarnings from '../block-removal-warnings';
 import StartPageOptions from '../start-page-options';
 import KeyboardShortcutHelpModal from '../keyboard-shortcut-help-modal';
-import ContentOnlySettingsMenu from '../block-settings-menu/content-only-settings-menu';
 import StartTemplateOptions from '../start-template-options';
 import EditorKeyboardShortcuts from '../global-keyboard-shortcuts';
 import PatternRenameModal from '../pattern-rename-modal';
 import PatternDuplicateModal from '../pattern-duplicate-modal';
 import TemplatePartMenuItems from '../template-part-menu-items';
+import MediaEditorModalMount from '../media/media-editor-modal';
 
 const { ExperimentalBlockEditorProvider } = unlock( blockEditorPrivateApis );
 const { PatternsMenuItems } = unlock( editPatternsPrivateApis );
@@ -73,6 +79,7 @@ const NON_CONTEXTUAL_POST_TYPES = [
  * @return {Array} Block editor props.
  */
 function useBlockEditorProps( post, template, mode ) {
+	const revisionBlocks = useRevisionBlocks();
 	const rootLevelPost = mode === 'template-locked' ? 'template' : 'post';
 	const [ postBlocks, onInput, onChange ] = useEntityBlockEditor(
 		'postType',
@@ -110,6 +117,11 @@ function useBlockEditorProps( post, template, mode ) {
 
 		return postBlocks;
 	}, [ maybeNavigationBlocks, rootLevelPost, templateBlocks, postBlocks ] );
+
+	// In revisions mode, use the revision blocks and disable editing.
+	if ( revisionBlocks !== null ) {
+		return [ revisionBlocks, noop, noop ];
+	}
 
 	// Handle fallback to postBlocks outside of the above useMemo, to ensure
 	// that constructed block templates that call `createBlock` are not generated
@@ -164,6 +176,7 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 		BlockEditorProviderComponent = ExperimentalBlockEditorProvider,
 		__unstableTemplate: template,
 	} ) => {
+		const hasTemplate = !! template;
 		const {
 			editorSettings,
 			selection,
@@ -171,51 +184,65 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 			mode,
 			defaultMode,
 			postTypeEntities,
-			hasLoadedPostObject,
+			isInRevisionsMode,
+			currentRevisionId,
 		} = useSelect(
 			( select ) => {
 				const {
 					getEditorSettings,
-					getEditorSelection,
 					getRenderingMode,
 					__unstableIsEditorReady,
-				} = select( editorStore );
-				const { getEntitiesConfig } = select( coreStore );
+					getDefaultRenderingMode,
+					isRevisionsMode: _isRevisionsMode,
+					getCurrentRevisionId: _getCurrentRevisionId,
+				} = unlock( select( editorStore ) );
+				const { getEntitiesConfig, getEntityRecordEdits } =
+					select( coreStore );
 
-				const postTypeObject = select( coreStore ).getPostType(
-					post.type
+				const _mode = getRenderingMode();
+				const _defaultMode = getDefaultRenderingMode( post.type );
+				/**
+				 * To avoid content "flash", wait until rendering mode has been resolved.
+				 * This is important for the initial render of the editor.
+				 *
+				 * - Wait for template to be resolved if the default mode is 'template-locked'.
+				 * - Wait for default mode to be resolved otherwise.
+				 */
+				const hasResolvedDefaultMode =
+					_defaultMode === 'template-locked'
+						? hasTemplate
+						: _defaultMode !== undefined;
+				// Wait until the default mode is retrieved and start rendering canvas.
+				const isRenderingModeReady = _defaultMode !== undefined;
+
+				// Read selection directly from entity edits using the post prop,
+				// bypassing getCurrentPostId() which lags behind in useEffect.
+				const entityEdits = getEntityRecordEdits(
+					'postType',
+					post.type,
+					post.id
 				);
 
-				const _hasLoadedPostObject = select(
-					coreStore
-				).hasFinishedResolution( 'getPostType', [ post.type ] );
-
 				return {
-					hasLoadedPostObject: _hasLoadedPostObject,
 					editorSettings: getEditorSettings(),
 					isReady: __unstableIsEditorReady(),
-					mode: getRenderingMode(),
-					defaultMode:
-						postTypeObject?.default_rendering_mode ?? 'post-only',
-					selection: getEditorSelection(),
+					mode: isRenderingModeReady ? _mode : undefined,
+					defaultMode: hasResolvedDefaultMode
+						? _defaultMode
+						: undefined,
+					selection: entityEdits?.selection,
 					postTypeEntities:
 						post.type === 'wp_template'
 							? getEntitiesConfig( 'postType' )
 							: null,
+					isInRevisionsMode: _isRevisionsMode(),
+					currentRevisionId: _getCurrentRevisionId(),
 				};
 			},
-			[ post.type ]
+			[ post.type, post.id, hasTemplate ]
 		);
 
-		const isZoomOut = useSelect( ( select ) => {
-			const { isZoomOut: _isZoomOut } = unlock(
-				select( blockEditorStore )
-			);
-
-			return _isZoomOut();
-		} );
-
-		const shouldRenderTemplate = !! template && mode !== 'post-only';
+		const shouldRenderTemplate = hasTemplate && mode !== 'post-only';
 		const rootLevelPost = shouldRenderTemplate ? template : post;
 		const defaultBlockContext = useMemo( () => {
 			const postContext = {};
@@ -282,7 +309,23 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 			setEditedPost,
 			setRenderingMode,
 		} = unlock( useDispatch( editorStore ) );
-		const { createWarningNotice } = useDispatch( noticesStore );
+		const { editEntityRecord } = useDispatch( coreStore );
+		const registry = useRegistry();
+
+		const onChangeSelection = useCallback(
+			( newSelection ) => {
+				editEntityRecord(
+					'postType',
+					post.type,
+					post.id,
+					{ selection: newSelection },
+					{ undoIgnore: true }
+				);
+			},
+			[ editEntityRecord, post.type, post.id ]
+		);
+		const { createWarningNotice, removeNotice } =
+			useDispatch( noticesStore );
 
 		// Ideally this should be synced on each change and not just something you do once.
 		useLayoutEffect( () => {
@@ -292,7 +335,13 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 			}
 
 			updatePostLock( settings.postLock );
-			setupEditor( post, initialEdits, settings.template );
+			// `setupEditor` may already have been dispatched by the
+			// editor's pre-mount kickoff (see edit-post's
+			// `initializeEditor`). Skip the redundant dispatch — it
+			// would otherwise re-parse + reset blocks for new posts.
+			if ( ! registry.select( editorStore ).__unstableIsEditorReady() ) {
+				setupEditor( post, initialEdits, settings.template );
+			}
 			if ( settings.autosave ) {
 				createWarningNotice(
 					__(
@@ -309,20 +358,25 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 					}
 				);
 			}
-		}, [
-			createWarningNotice,
-			initialEdits,
-			settings,
-			post,
-			recovery,
-			setupEditor,
-			updatePostLock,
-		] );
+
+			// The dependencies of the hook are omitted deliberately
+			// We only want to run setupEditor (with initialEdits) only once per post.
+			// A better solution in the future would be to split this effect into multiple ones.
+		}, [] );
 
 		// Synchronizes the active post with the state
 		useEffect( () => {
 			setEditedPost( post.type, post.id );
-		}, [ post.type, post.id, setEditedPost ] );
+			if (
+				typeof window !== 'undefined' &&
+				window.__experimentalTemplateActivate
+			) {
+				// Clear any notices dependent on the post context.
+				removeNotice( 'template-activate-notice' );
+			}
+
+			return () => setEditedPost( null, null );
+		}, [ post.type, post.id, setEditedPost, removeNotice ] );
 
 		// Synchronize the editor settings as they change.
 		useEffect( () => {
@@ -336,7 +390,9 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 
 		// Sets the right rendering mode when loading the editor.
 		useEffect( () => {
-			setRenderingMode( defaultMode );
+			if ( defaultMode ) {
+				setRenderingMode( defaultMode );
+			}
 		}, [ defaultMode, setRenderingMode ] );
 
 		useHideBlocksFromInserter( post.type, mode );
@@ -344,7 +400,10 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 		// Register the editor commands.
 		useCommands();
 
-		if ( ! isReady || ! mode || ! hasLoadedPostObject ) {
+		// Lock post saving when media uploads are in progress (experimental feature).
+		useUploadSaveLock();
+
+		if ( ! isReady || ! mode ) {
 			return null;
 		}
 
@@ -354,26 +413,27 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 					kind="postType"
 					type={ post.type }
 					id={ post.id }
+					revisionId={ currentRevisionId ?? undefined }
 				>
 					<BlockContextProvider value={ defaultBlockContext }>
 						<BlockEditorProviderComponent
 							value={ blocks }
 							onChange={ onChange }
 							onInput={ onInput }
-							selection={ selection }
+							selection={
+								isInRevisionsMode ? undefined : selection
+							}
+							onChangeSelection={
+								isInRevisionsMode ? noop : onChangeSelection
+							}
 							settings={ blockEditorSettings }
 							useSubRegistry={ false }
 						>
 							{ children }
 							{ ! settings.isPreviewMode && (
 								<>
-									{ ! isZoomOut && (
-										<>
-											<PatternsMenuItems />
-											<TemplatePartMenuItems />
-											<ContentOnlySettingsMenu />
-										</>
-									) }
+									<PatternsMenuItems />
+									<TemplatePartMenuItems />
 									{ mode === 'template-locked' && (
 										<DisableNonPageContentBlocks />
 									) }
@@ -387,6 +447,9 @@ export const ExperimentalEditorProvider = withRegistryProvider(
 									<StartTemplateOptions />
 									<PatternRenameModal />
 									<PatternDuplicateModal />
+									{ window?.__experimentalMediaEditorModal && (
+										<MediaEditorModalMount />
+									) }
 								</>
 							) }
 						</BlockEditorProviderComponent>
@@ -405,14 +468,14 @@ export const ExperimentalEditorProvider = withRegistryProvider(
  *
  * All modification and changes are performed to the `@wordpress/core-data` store.
  *
- * @param {Object}  props                      The component props.
- * @param {Object}  [props.post]               The post object to edit. This is required.
- * @param {Object}  [props.__unstableTemplate] The template object wrapper the edited post.
- *                                             This is optional and can only be used when the post type supports templates (like posts and pages).
- * @param {Object}  [props.settings]           The settings object to use for the editor.
- *                                             This is optional and can be used to override the default settings.
- * @param {Element} [props.children]           Children elements for which the BlockEditorProvider context should apply.
- *                                             This is optional.
+ * @param {Object}          props                      The component props.
+ * @param {Object}          [props.post]               The post object to edit. This is required.
+ * @param {Object}          [props.__unstableTemplate] The template object wrapper the edited post.
+ *                                                     This is optional and can only be used when the post type supports templates (like posts and pages).
+ * @param {Object}          [props.settings]           The settings object to use for the editor.
+ *                                                     This is optional and can be used to override the default settings.
+ * @param {React.ReactNode} [props.children]           Children elements for which the BlockEditorProvider context should apply.
+ *                                                     This is optional.
  *
  * @example
  * ```jsx

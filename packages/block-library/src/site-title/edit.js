@@ -1,9 +1,4 @@
 /**
- * External dependencies
- */
-import clsx from 'clsx';
-
-/**
  * WordPress dependencies
  */
 import { useDispatch, useSelect } from '@wordpress/data';
@@ -11,22 +6,32 @@ import { store as coreStore } from '@wordpress/core-data';
 import { __ } from '@wordpress/i18n';
 import {
 	RichText,
-	AlignmentControl,
 	InspectorControls,
 	BlockControls,
 	useBlockProps,
 	HeadingLevelDropdown,
+	useBlockEditingMode,
 } from '@wordpress/block-editor';
-import { ToggleControl, PanelBody } from '@wordpress/components';
+import {
+	ToggleControl,
+	__experimentalToolsPanel as ToolsPanel,
+	__experimentalToolsPanelItem as ToolsPanelItem,
+} from '@wordpress/components';
 import { createBlock, getDefaultBlockName } from '@wordpress/blocks';
 import { decodeEntities } from '@wordpress/html-entities';
 
-export default function SiteTitleEdit( {
-	attributes,
-	setAttributes,
-	insertBlocksAfter,
-} ) {
-	const { level, levelOptions, textAlign, isLink, linkTarget } = attributes;
+/**
+ * Internal dependencies
+ */
+import { useToolsPanelDropdownMenuProps } from '../utils/hooks';
+import useDeprecatedTextAlign from '../utils/deprecated-text-align-attributes';
+
+export default function SiteTitleEdit( props ) {
+	useDeprecatedTextAlign( props );
+
+	const { attributes, setAttributes, insertBlocksAfter } = props;
+
+	const { level, levelOptions, isLink, linkTarget } = attributes;
 	const { canUserEdit, title } = useSelect( ( select ) => {
 		const { canUser, getEntityRecord, getEditedEntityRecord } =
 			select( coreStore );
@@ -43,19 +48,19 @@ export default function SiteTitleEdit( {
 		};
 	}, [] );
 	const { editEntityRecord } = useDispatch( coreStore );
+	const dropdownMenuProps = useToolsPanelDropdownMenuProps();
+	const blockEditingMode = useBlockEditingMode();
 
 	function setTitle( newTitle ) {
 		editEntityRecord( 'root', 'site', undefined, {
-			title: newTitle,
+			title: newTitle.trim(),
 		} );
 	}
 
 	const TagName = level === 0 ? 'p' : `h${ level }`;
 	const blockProps = useBlockProps( {
-		className: clsx( {
-			[ `has-text-align-${ textAlign }` ]: textAlign,
-			'wp-block-site-title__placeholder': ! canUserEdit && ! title,
-		} ),
+		className:
+			! canUserEdit && ! title && 'wp-block-site-title__placeholder',
 	} );
 	const siteTitleContent = canUserEdit ? (
 		<TagName { ...blockProps }>
@@ -93,42 +98,63 @@ export default function SiteTitleEdit( {
 	);
 	return (
 		<>
-			<BlockControls group="block">
-				<HeadingLevelDropdown
-					value={ level }
-					options={ levelOptions }
-					onChange={ ( newLevel ) =>
-						setAttributes( { level: newLevel } )
-					}
-				/>
-				<AlignmentControl
-					value={ textAlign }
-					onChange={ ( nextAlign ) => {
-						setAttributes( { textAlign: nextAlign } );
-					} }
-				/>
-			</BlockControls>
-			<InspectorControls>
-				<PanelBody title={ __( 'Settings' ) }>
-					<ToggleControl
-						__nextHasNoMarginBottom
-						label={ __( 'Make title link to home' ) }
-						onChange={ () => setAttributes( { isLink: ! isLink } ) }
-						checked={ isLink }
+			{ blockEditingMode === 'default' && (
+				<BlockControls group="block">
+					<HeadingLevelDropdown
+						value={ level }
+						options={ levelOptions }
+						onChange={ ( newLevel ) =>
+							setAttributes( { level: newLevel } )
+						}
 					/>
-					{ isLink && (
+				</BlockControls>
+			) }
+			<InspectorControls>
+				<ToolsPanel
+					label={ __( 'Settings' ) }
+					resetAll={ () => {
+						setAttributes( {
+							isLink: true,
+							linkTarget: '_self',
+						} );
+					} }
+					dropdownMenuProps={ dropdownMenuProps }
+				>
+					<ToolsPanelItem
+						hasValue={ () => ! isLink }
+						label={ __( 'Make title link to home' ) }
+						onDeselect={ () => setAttributes( { isLink: true } ) }
+						isShownByDefault
+					>
 						<ToggleControl
-							__nextHasNoMarginBottom
-							label={ __( 'Open in new tab' ) }
-							onChange={ ( value ) =>
-								setAttributes( {
-									linkTarget: value ? '_blank' : '_self',
-								} )
+							label={ __( 'Make title link to home' ) }
+							onChange={ () =>
+								setAttributes( { isLink: ! isLink } )
 							}
-							checked={ linkTarget === '_blank' }
+							checked={ isLink }
 						/>
+					</ToolsPanelItem>
+					{ isLink && (
+						<ToolsPanelItem
+							hasValue={ () => linkTarget !== '_self' }
+							label={ __( 'Open in new tab' ) }
+							onDeselect={ () =>
+								setAttributes( { linkTarget: '_self' } )
+							}
+							isShownByDefault
+						>
+							<ToggleControl
+								label={ __( 'Open in new tab' ) }
+								onChange={ ( value ) =>
+									setAttributes( {
+										linkTarget: value ? '_blank' : '_self',
+									} )
+								}
+								checked={ linkTarget === '_blank' }
+							/>
+						</ToolsPanelItem>
 					) }
-				</PanelBody>
+				</ToolsPanel>
 			</InspectorControls>
 			{ siteTitleContent }
 		</>

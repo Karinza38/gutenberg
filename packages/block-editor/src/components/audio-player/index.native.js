@@ -14,10 +14,10 @@ import { default as VideoPlayer } from 'react-native-video';
  * WordPress dependencies
  */
 import { View } from '@wordpress/primitives';
-import { Icon } from '@wordpress/components';
+import { Icon as WCIcon } from '@wordpress/components';
 import { withPreferredColorScheme } from '@wordpress/compose';
 import { __ } from '@wordpress/i18n';
-import { audio, warning } from '@wordpress/icons';
+import { audio, cautionFilled } from '@wordpress/icons';
 import {
 	requestImageFailedRetryDialog,
 	requestImageUploadCancelDialog,
@@ -160,14 +160,18 @@ function Player( {
 		>
 			<View style={ containerStyle }>
 				<View style={ iconContainerStyle }>
-					<Icon icon={ audio } style={ finalIconStyle } size={ 24 } />
+					<WCIcon
+						icon={ audio }
+						style={ finalIconStyle }
+						size={ 24 }
+					/>
 				</View>
 				<View style={ titleContainerStyle }>
 					<Text style={ titleStyle }>{ title }</Text>
 					<View style={ styles.subtitleContainer }>
 						{ isUploadFailed && (
-							<Icon
-								icon={ warning }
+							<WCIcon
+								icon={ cautionFilled }
 								style={ {
 									...styles.errorIcon,
 									...uploadFailedStyle,

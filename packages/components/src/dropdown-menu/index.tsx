@@ -164,12 +164,14 @@ function UnconnectedDropdownMenu( dropdownMenuProps: DropdownMenuProps ) {
 						{ controlSets?.flatMap( ( controlSet, indexOfSet ) =>
 							controlSet.map( ( control, indexOfControl ) => (
 								<Button
-									__next40pxDefaultSize
+									size="compact"
 									key={ [
 										indexOfSet,
 										indexOfControl,
 									].join() }
-									onClick={ ( event ) => {
+									onClick={ (
+										event: React.MouseEvent< HTMLButtonElement >
+									) => {
 										event.stopPropagation();
 										props.onClose();
 										if ( control.onClick ) {

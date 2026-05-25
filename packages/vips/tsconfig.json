@@ -5,5 +5,7 @@
 		"rootDir": "src",
 		"declarationDir": "build-types"
 	},
-	"include": [ "src/**/*" ]
+	"references": [ { "path": "../worker-threads" } ],
+	"include": [ "src/**/*" ],
+	"exclude": [ "src/test/**" ]
 }

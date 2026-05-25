@@ -1,7 +1,7 @@
 /**
  * External dependencies
  */
-import type { Meta, StoryFn } from '@storybook/react';
+import type { Meta, StoryFn } from '@storybook/react-vite';
 
 /**
  * WordPress dependencies
@@ -11,13 +11,12 @@ import { useState, useEffect } from '@wordpress/element';
 /**
  * Internal dependencies
  */
-import TimePicker from '../time';
+import TimePicker from '../time-picker';
 
 const meta: Meta< typeof TimePicker > = {
 	title: 'Components/Selection & Input/Time & Date/TimePicker',
 	id: 'components-timepicker',
 	component: TimePicker,
-	// @ts-expect-error - See https://github.com/storybookjs/storybook/issues/23170
 	subcomponents: { 'TimePicker.TimeInput': TimePicker.TimeInput },
 	argTypes: {
 		currentTime: { control: 'date' },
@@ -26,6 +25,11 @@ const meta: Meta< typeof TimePicker > = {
 	parameters: {
 		controls: { expanded: true },
 		docs: { canvas: { sourceState: 'shown' } },
+		componentStatus: {
+			status: 'use-with-caution',
+			whereUsed: 'global',
+			notes: 'Consider using a `TextControl` with `type="date"` or `type="datetime-local"` instead.',
+		},
 	},
 };
 export default meta;
@@ -52,6 +56,9 @@ const Template: StoryFn< typeof TimePicker > = ( {
 };
 
 export const Default: StoryFn< typeof TimePicker > = Template.bind( {} );
+Default.args = {
+	currentTime: new Date(),
+};
 
 const TimeInputTemplate: StoryFn< typeof TimePicker.TimeInput > = ( args ) => {
 	return <TimePicker.TimeInput { ...args } />;

@@ -23,7 +23,7 @@ import {
 } from '@wordpress/react-native-bridge';
 import { __ } from '@wordpress/i18n';
 import {
-	Icon,
+	Icon as WCIcon,
 	Image,
 	ImageEditingButton,
 	IMAGE_DEFAULT_FOCAL_POINT,
@@ -58,7 +58,7 @@ import {
 	useCallback,
 	useMemo,
 } from '@wordpress/element';
-import { cover as icon, replace, image, warning } from '@wordpress/icons';
+import { cover as icon, replace, image, cautionFilled } from '@wordpress/icons';
 import { getProtocol } from '@wordpress/url';
 // eslint-disable-next-line no-restricted-imports
 import { store as editPostStore } from '@wordpress/edit-post';
@@ -354,7 +354,9 @@ const Cover = ( {
 		styles.iconDark
 	);
 
-	const placeholderIcon = <Icon icon={ icon } { ...placeholderIconStyle } />;
+	const placeholderIcon = (
+		<WCIcon icon={ icon } { ...placeholderIconStyle } />
+	);
 
 	const toolbarControls = ( open ) => (
 		<BlockControls group="other">
@@ -380,7 +382,7 @@ const Cover = ( {
 		>
 			<View style={ styles.selectImageContainer }>
 				<View style={ styles.selectImage }>
-					<Icon
+					<WCIcon
 						size={ 16 }
 						icon={ image }
 						{ ...styles.selectImageIcon }
@@ -665,7 +667,10 @@ const Cover = ( {
 					style={ styles.uploadFailedContainer }
 				>
 					<View style={ styles.uploadFailed }>
-						<Icon icon={ warning } { ...styles.uploadFailedIcon } />
+						<WCIcon
+							icon={ cautionFilled }
+							{ ...styles.uploadFailedIcon }
+						/>
 					</View>
 				</View>
 			) }

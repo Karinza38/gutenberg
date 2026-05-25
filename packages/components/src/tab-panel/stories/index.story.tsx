@@ -1,16 +1,6 @@
-/**
- * External dependencies
- */
-import type { Meta, StoryFn } from '@storybook/react';
-
-/**
- * WordPress dependencies
- */
+import type { Meta, StoryFn } from '@storybook/react-vite';
+import { fn } from 'storybook/test';
 import { link, more, wordpress } from '@wordpress/icons';
-
-/**
- * Internal dependencies
- */
 import TabPanel from '..';
 
 const meta: Meta< typeof TabPanel > = {
@@ -18,9 +8,16 @@ const meta: Meta< typeof TabPanel > = {
 	id: 'components-tabpanel',
 	component: TabPanel,
 	parameters: {
-		actions: { argTypesRegex: '^on.*' },
 		controls: { expanded: true },
 		docs: { canvas: { sourceState: 'shown' } },
+		componentStatus: {
+			status: 'not-recommended',
+			whereUsed: 'global',
+			notes: 'Use `Tabs` from `@wordpress/ui` instead.',
+		},
+	},
+	args: {
+		onSelect: fn(),
 	},
 };
 export default meta;

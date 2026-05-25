@@ -9,18 +9,20 @@ import clsx from 'clsx';
 import { useState, useRef } from '@wordpress/element';
 import {
 	ResizableBox,
-	Tooltip,
+	Tooltip as WCTooltip,
 	__unstableMotion as motion,
 } from '@wordpress/components';
 import { useInstanceId, useReducedMotion } from '@wordpress/compose';
 import { __, isRTL } from '@wordpress/i18n';
 import { privateApis as routerPrivateApis } from '@wordpress/router';
+import { useSelect } from '@wordpress/data';
+import { store as coreStore } from '@wordpress/core-data';
+import { addQueryArgs } from '@wordpress/url';
 
 /**
  * Internal dependencies
  */
 import { unlock } from '../../lock-unlock';
-import { addQueryArgs } from '@wordpress/url';
 
 const { useLocation, useHistory } = unlock( routerPrivateApis );
 
@@ -84,7 +86,7 @@ function ResizableFrame( {
 	setIsOversized,
 	isReady,
 	children,
-	/** The default (unresized) width/height of the frame, based on the space availalbe in the viewport. */
+	/** The default (unresized) width/height of the frame, based on the space available in the viewport. */
 	defaultSize,
 	innerContentStyle,
 } ) {
@@ -106,6 +108,10 @@ function ResizableFrame( {
 		'edit-site-resizable-frame-handle-help'
 	);
 	const defaultAspectRatio = defaultSize.width / defaultSize.height;
+	const isBlockTheme = useSelect( ( select ) => {
+		const { getCurrentTheme } = select( coreStore );
+		return getCurrentTheme()?.is_block_theme;
+	}, [] );
 
 	const handleResizeStart = ( _event, _direction, ref ) => {
 		// Remember the starting width so we don't have to get `ref.offsetWidth` on
@@ -153,7 +159,10 @@ function ResizableFrame( {
 		const remainingWidth =
 			ref.ownerDocument.documentElement.offsetWidth - ref.offsetWidth;
 
-		if ( remainingWidth > SNAP_TO_EDIT_CANVAS_MODE_THRESHOLD ) {
+		if (
+			remainingWidth > SNAP_TO_EDIT_CANVAS_MODE_THRESHOLD ||
+			! isBlockTheme
+		) {
 			// Reset the initial aspect ratio if the frame is resized slightly
 			// above the sidebar but not far enough to trigger full screen.
 			setFrameSize( INITIAL_FRAME_SIZE );
@@ -245,7 +254,7 @@ function ResizableFrame( {
 				}
 			} }
 			whileHover={
-				canvas === 'view'
+				canvas === 'view' && isBlockTheme
 					? {
 							scale: 1.005,
 							transition: {
@@ -285,9 +294,7 @@ function ResizableFrame( {
 			handleComponent={ {
 				[ isRTL() ? 'right' : 'left' ]: canvas === 'view' && (
 					<>
-						<Tooltip text={ __( 'Drag to resize' ) }>
-							{ /* Disable reason: role="separator" does in fact support aria-valuenow */ }
-							{ /* eslint-disable-next-line jsx-a11y/role-supports-aria-props */ }
+						<WCTooltip text={ __( 'Drag to resize' ) }>
 							<motion.button
 								key="handle"
 								role="separator"
@@ -312,7 +319,7 @@ function ResizableFrame( {
 								whileFocus="active"
 								whileHover="active"
 							/>
-						</Tooltip>
+						</WCTooltip>
 						<div hidden id={ resizableHandleHelpId }>
 							{ __(
 								'Use left and right arrow keys to resize the canvas. Hold shift to resize in larger increments.'

@@ -12,7 +12,11 @@ import {
 	requestImageUploadCancelDialog,
 	requestImageFullscreenPreview,
 } from '@wordpress/react-native-bridge';
-import { Icon, Image, IMAGE_DEFAULT_FOCAL_POINT } from '@wordpress/components';
+import {
+	Icon as WCIcon,
+	Image,
+	IMAGE_DEFAULT_FOCAL_POINT,
+} from '@wordpress/components';
 import {
 	MEDIA_TYPE_IMAGE,
 	MEDIA_TYPE_VIDEO,
@@ -117,7 +121,7 @@ class MediaContainer extends Component {
 								styles.iconRetryVideoDark
 						  );
 
-				return <Icon icon={ SvgIconRetry } { ...iconStyle } />;
+				return <WCIcon icon={ SvgIconRetry } { ...iconStyle } />;
 			case ICON_TYPE.PLACEHOLDER:
 				iconStyle = getStylesFromColorScheme(
 					styles.iconPlaceholder,
@@ -125,7 +129,7 @@ class MediaContainer extends Component {
 				);
 				break;
 		}
-		return <Icon icon={ icon } { ...iconStyle } />;
+		return <WCIcon icon={ icon } { ...iconStyle } />;
 	}
 
 	updateMediaProgress( payload ) {
@@ -171,7 +175,7 @@ class MediaContainer extends Component {
 	renderImage( params, openMediaOptions ) {
 		const { isUploadInProgress } = this.state;
 		const {
-			aligmentStyles,
+			alignmentStyles,
 			focalPoint,
 			imageFill,
 			isMediaSelected,
@@ -205,7 +209,7 @@ class MediaContainer extends Component {
 						style={ [
 							imageFill && styles.imageCropped,
 							styles.mediaImageContainer,
-							! isUploadInProgress && aligmentStyles,
+							! isUploadInProgress && alignmentStyles,
 						] }
 					>
 						<Image
@@ -232,7 +236,7 @@ class MediaContainer extends Component {
 
 	renderVideo( params ) {
 		const {
-			aligmentStyles,
+			alignmentStyles,
 			mediaUrl,
 			isSelected,
 			getStylesFromColorScheme,
@@ -261,7 +265,7 @@ class MediaContainer extends Component {
 					onPress={ this.onMediaPressed }
 					disabled={ ! isSelected }
 				>
-					<View style={ [ styles.videoContainer, aligmentStyles ] }>
+					<View style={ [ styles.videoContainer, alignmentStyles ] }>
 						<View
 							style={ [
 								styles.videoContent,

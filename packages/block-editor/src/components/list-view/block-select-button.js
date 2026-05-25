@@ -9,11 +9,21 @@ import clsx from 'clsx';
 import {
 	__experimentalHStack as HStack,
 	__experimentalTruncate as Truncate,
+	privateApis as componentsPrivateApis,
 } from '@wordpress/components';
 import { forwardRef } from '@wordpress/element';
-import { Icon, lockSmall as lock, pinSmall } from '@wordpress/icons';
+import {
+	Icon,
+	lockSmall as lock,
+	pinSmall,
+	unseen,
+	symbol,
+} from '@wordpress/icons';
 import { SPACE, ENTER } from '@wordpress/keycodes';
 import { useSelect } from '@wordpress/data';
+
+// eslint-disable-next-line @wordpress/use-recommended-components -- `Tooltip` is not yet on the recommended `@wordpress/ui` allow-list; landing as a migration step ahead of the wider rollout.
+import { Tooltip } from '@wordpress/ui';
 
 /**
  * Internal dependencies
@@ -25,6 +35,10 @@ import ListViewExpander from './expander';
 import { useBlockLock } from '../block-lock';
 import useListViewImages from './use-list-view-images';
 import { store as blockEditorStore } from '../../store';
+import { unlock } from '../../lock-unlock';
+import { getBlockVisibilityLabel } from '../block-visibility';
+
+const { Badge: WCBadge } = unlock( componentsPrivateApis );
 
 function ListViewBlockSelectButton(
 	{
@@ -50,17 +64,24 @@ function ListViewBlockSelectButton(
 		context: 'list-view',
 	} );
 	const { isLocked } = useBlockLock( clientId );
-	const { isContentOnly } = useSelect(
-		( select ) => ( {
-			isContentOnly:
-				select( blockEditorStore ).getBlockEditingMode( clientId ) ===
-				'contentOnly',
-		} ),
+	const { hasPatternName, blockVisibility } = useSelect(
+		( select ) => {
+			const { getBlockAttributes } = unlock( select( blockEditorStore ) );
+			const attributes = getBlockAttributes( clientId );
+			return {
+				hasPatternName: !! attributes?.metadata?.patternName,
+				blockVisibility: attributes?.metadata?.blockVisibility,
+			};
+		},
 		[ clientId ]
 	);
-	const shouldShowLockIcon = isLocked && ! isContentOnly;
+
+	const shouldShowLockIcon = isLocked;
 	const isSticky = blockInformation?.positionType === 'sticky';
 	const images = useListViewImages( { clientId, isExpanded } );
+
+	// Determine visibility label from blockVisibility metadata
+	const visibilityLabel = getBlockVisibilityLabel( blockVisibility );
 
 	// The `href` attribute triggers the browser's native HTML drag operations.
 	// When the link is dragged, the element's outerHTML is set in DataTransfer object as text/html.
@@ -102,7 +123,7 @@ function ListViewBlockSelectButton(
 		>
 			<ListViewExpander onClick={ onToggleExpanded } />
 			<BlockIcon
-				icon={ blockInformation?.icon }
+				icon={ hasPatternName ? symbol : blockInformation?.icon }
 				showColors
 				context="list-view"
 			/>
@@ -117,12 +138,9 @@ function ListViewBlockSelectButton(
 				</span>
 				{ blockInformation?.anchor && (
 					<span className="block-editor-list-view-block-select-button__anchor-wrapper">
-						<Truncate
-							className="block-editor-list-view-block-select-button__anchor"
-							ellipsizeMode="auto"
-						>
+						<WCBadge className="block-editor-list-view-block-select-button__anchor">
 							{ blockInformation.anchor }
-						</Truncate>
+						</WCBadge>
 					</span>
 				) }
 				{ isSticky && (
@@ -147,6 +165,24 @@ function ListViewBlockSelectButton(
 						) ) }
 					</span>
 				) : null }
+				{ !! visibilityLabel && (
+					// TODO: `visibilityLabel` is not exposed to
+					// assistive technology — the trigger is
+					// `aria-hidden`, so the label is sighted-hover-only.
+					<Tooltip.Root>
+						<Tooltip.Trigger
+							render={
+								<span
+									className="block-editor-list-view-block-select-button__block-visibility"
+									aria-hidden="true"
+								>
+									<Icon icon={ unseen } />
+								</span>
+							}
+						/>
+						<Tooltip.Popup>{ visibilityLabel }</Tooltip.Popup>
+					</Tooltip.Root>
+				) }
 				{ shouldShowLockIcon && (
 					<span className="block-editor-list-view-block-select-button__lock">
 						<Icon icon={ lock } />
